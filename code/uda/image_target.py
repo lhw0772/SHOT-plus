@@ -469,7 +469,7 @@ if __name__ == "__main__":
     random.seed(SEED)
     # torch.backends.cudnn.deterministic = True
 
-	folder = '../data/'
+    folder = '../data/'
     for i in range(len(names)):
         if i == args.s:
             continue

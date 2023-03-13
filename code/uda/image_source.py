@@ -148,7 +148,7 @@ def train_source(args):
             inputs_source, labels_source = iter_source.next()
         except:
             iter_source = iter(dset_loaders["source_tr"])
-            inputs_source, labels_source = iter_source.next()
+            inputs_source, labels_source = next(iter_source)
 
         if inputs_source.size(0) == 1:
             continue
