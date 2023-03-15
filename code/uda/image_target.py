@@ -16,6 +16,7 @@ from scipy.spatial.distance import cdist
 from sklearn.metrics import confusion_matrix
 import rotation
 
+import timm
 def op_copy(optimizer):
     for param_group in optimizer.param_groups:
         param_group['lr0'] = param_group['lr']
@@ -222,7 +223,11 @@ def train_target(args):
     if args.net[0:3] == 'res':
         netF = network.ResBase(res_name=args.net).cuda()
     elif args.net[0:3] == 'vgg':
-        netF = network.VGGBase(vgg_name=args.net).cuda()  
+        netF = network.VGGBase(vgg_name=args.net).cuda()
+    elif args.net[0:3] == 'vit':
+        netF = timm.create_model(args.net, pretrained=True).cuda()
+        netF.in_features = 1000
+
 
     netB = network.feat_bottleneck(type=args.classifier, feature_dim=netF.in_features, bottleneck_dim=args.bottleneck).cuda()
     netC = network.feat_classifier(type=args.layer, class_num = args.class_num, bottleneck_dim=args.bottleneck).cuda()

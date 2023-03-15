@@ -24,6 +24,7 @@ import network
 from data_list import ImageList, ImageList_twice
 from sklearn.metrics import confusion_matrix
 
+import timm
 def split_target(args):
     test_transform = torchvision.transforms.Compose([
         torchvision.transforms.Resize((256, 256)),
@@ -233,7 +234,10 @@ def train(args, txt_src, txt_tgt):
     if args.net[0:3] == 'res':
         netG = network.ResBase(res_name=args.net).cuda()
     elif args.net[0:3] == 'vgg':
-        netG = network.VGGBase(vgg_name=args.net).cuda()  
+        netG = network.VGGBase(vgg_name=args.net).cuda()
+    elif args.net[0:3] == 'vit':
+        netF = timm.create_model(args.net, pretrained=True).cuda()
+        netF.in_features = 1000
 
     max_len = max(len(dset_loaders["source"]), len(dset_loaders["target"]))
     max_iter = args.max_epoch*max_len
@@ -400,8 +404,10 @@ if __name__ == "__main__":
     parser.add_argument('--worker', type=int, default=4, help="number of workers")
     parser.add_argument('--bottleneck_dim', type=int, default=256)
 
-    parser.add_argument('--net', type=str, default='resnet50', choices=["resnet18", "resnet50", "resnet101", "resnet34", "vgg16"])
-    parser.add_argument('--dset', type=str, default='office-home', choices=['VISDA-C', 'office', 'office-home'], help="The dataset or source dataset used")
+    parser.add_argument('--net', type=str, default='resnet50',
+                        choices=["resnet18", "resnet50", "resnet101", "resnet34", "vgg16","vit_base_patch16_224"])
+    parser.add_argument('--dset', type=str, default='office-home',
+                        choices=['VISDA-C', 'office', 'office-home'], help="The dataset or source dataset used")
     parser.add_argument('--lr', type=float, default=1e-2, help="learning rate")
 
     parser.add_argument('--alpha', default=0.75, type=float)
