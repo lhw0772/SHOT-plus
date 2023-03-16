@@ -40,7 +40,15 @@ def split_target(args):
     dset_loaders["target"] = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size*3,
         shuffle=False, num_workers=args.worker, drop_last=False)
 
-    netF = network.ResBase(res_name=args.net).cuda()
+    #netF = network.ResBase(res_name=args.net).cuda()
+    if args.net[0:3] == 'res':
+        netF = network.ResBase(res_name=args.net).cuda()
+    elif args.net[0:3] == 'vgg':
+        netF = network.VGGBase(vgg_name=args.net).cuda()
+    elif args.net[0:3] == 'vit':
+        netF = timm.create_model(args.net, pretrained=True).cuda()
+        netF.in_features = 1000
+    
     netB = network.feat_bottleneck(type=args.classifier, feature_dim=netF.in_features, bottleneck_dim=args.bottleneck).cuda()
     netC = network.feat_classifier(type=args.layer, class_num = args.class_num, bottleneck_dim=args.bottleneck).cuda()
 
@@ -236,8 +244,8 @@ def train(args, txt_src, txt_tgt):
     elif args.net[0:3] == 'vgg':
         netG = network.VGGBase(vgg_name=args.net).cuda()
     elif args.net[0:3] == 'vit':
-        netF = timm.create_model(args.net, pretrained=True).cuda()
-        netF.in_features = 1000
+        netG = timm.create_model(args.net, pretrained=True).cuda()
+        netG.in_features = 1000
 
     max_len = max(len(dset_loaders["source"]), len(dset_loaders["target"]))
     max_iter = args.max_epoch*max_len
