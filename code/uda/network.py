@@ -370,6 +370,34 @@ class VGGBase(nn.Module):
 res_dict = {"resnet18":models.resnet18, "resnet34":models.resnet34, "resnet50":models.resnet50, 
 "resnet101":models.resnet101, "resnet152":models.resnet152, "resnext50":models.resnext50_32x4d, "resnext101":models.resnext101_32x8d}
 
+class ResBase2(nn.Module):
+    def __init__(self, res_name):
+        super(ResBase2, self).__init__()
+        model_resnet = res_dict[res_name](pretrained=True)
+        self.conv1 = model_resnet.conv1
+        self.bn1 = model_resnet.bn1
+        self.relu = model_resnet.relu
+        self.maxpool = model_resnet.maxpool
+        self.layer1 = model_resnet.layer1
+        self.layer2 = model_resnet.layer2
+        self.layer3 = model_resnet.layer3
+        self.layer4 = model_resnet.layer4
+        self.avgpool = model_resnet.avgpool
+        self.in_features = model_resnet.fc.in_features
+        
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+        #x = x.view(x.size(0), -1)
+        return x
+
+
 class ResBase(nn.Module):
     def __init__(self, res_name):
         super(ResBase, self).__init__()
@@ -474,7 +502,9 @@ class EfficientBase(nn.Module):
         # Head
         x = self._swish(self._bn1(self._conv_head(x)))
         return x
+    
 
+    
 class feat_bottleneck(nn.Module):
     def __init__(self, feature_dim, bottleneck_dim=256, type="ori"):
         super(feat_bottleneck, self).__init__()
@@ -498,6 +528,62 @@ class feat_bottleneck(nn.Module):
 class feat_classifier(nn.Module):
     def __init__(self, class_num, bottleneck_dim=256, type="linear"):
         super(feat_classifier, self).__init__()
+        self.type = type
+        if type == 'wn':
+            self.fc = weightNorm(nn.Linear(bottleneck_dim, class_num), name="weight")
+            self.fc.apply(init_weights)
+        elif type == 'linear':
+            self.fc = nn.Linear(bottleneck_dim, class_num)
+            self.fc.apply(init_weights)
+        else:
+            self.fc = nn.Linear(bottleneck_dim, class_num, bias=False)
+            nn.init.xavier_normal_(self.fc.weight)
+
+    def forward(self, x):
+        if not self.type in {'wn', 'linear'}:
+            w = self.fc.weight
+            w = torch.nn.functional.normalize(w, dim=1, p=2)
+            
+            x = torch.nn.functional.normalize(x, dim=1, p=2)
+            x = torch.nn.functional.linear(x, w)
+        else:
+            x = self.fc(x)
+        return x
+
+class feat_bottleneck_hw(nn.Module):
+    def __init__(self, feature_dim, bottleneck_dim=256, type="ori"):
+        super(feat_bottleneck_hw, self).__init__()
+        self.bn = nn.BatchNorm1d(bottleneck_dim, affine=True)
+        self.relu = nn.ReLU(inplace=True)
+        self.dropout = nn.Dropout(p=0.5)
+        self.bottleneck = nn.Linear(feature_dim, bottleneck_dim)
+        self.bottleneck.apply(init_weights)
+        self.type = type
+        
+        ##
+        self.pool = nn.AdaptiveAvgPool2d(output_size=(1, 1))
+        self.flat = nn.Flatten()
+       
+
+    def forward(self, x):
+        
+        ##
+        x = self.pool(x)
+        x = self.flat(x)
+        
+        x = self.bottleneck(x)
+        
+        if self.type == "bn" or self.type == "bn_relu" or self.type == "bn_relu_drop":
+            x = self.bn(x)
+        if self.type == "bn_relu" or self.type == "bn_relu_drop":
+            x = self.relu(x)
+        if self.type == "bn_relu_drop":
+            x = self.dropout(x)
+        return x
+
+class feat_classifier_hw(nn.Module):
+    def __init__(self, class_num, bottleneck_dim=256, type="linear"):
+        super(feat_classifier_hw, self).__init__()
         self.type = type
         if type == 'wn':
             self.fc = weightNorm(nn.Linear(bottleneck_dim, class_num), name="weight")
